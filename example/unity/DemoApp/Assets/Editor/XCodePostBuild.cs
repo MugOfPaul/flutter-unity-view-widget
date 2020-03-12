@@ -41,13 +41,17 @@ public static class XcodePostBuild
     /// </summary>
     private const string TouchedMarker = "https://github.com/snowballdigital/flutter-unity-view-widget";
 
-    [PostProcessBuild]
+    [PostProcessBuild(0)]
     public static void OnPostBuild(BuildTarget target, string pathToBuiltProject)
     {
-        if (target != BuildTarget.iOS)
+        if (target != BuildTarget.iOS || !pathToBuiltProject.Contains("UnityExport"))
         {
             return;
         }
+
+        #if FLUTTER_LIB
+        Debug.Log($"###### BUILDING FLUTTER LIBRARY ######");
+        #endif
 
         PatchUnityNativeCode(pathToBuiltProject);
 
@@ -155,33 +159,6 @@ public static class XcodePostBuild
         inScope = false;
         markerDetected = false;
 
-        // Modify inline GetAppController
-        EditCodeFile(path, line =>
-        {
-            inScope |= line.Contains("quitHandler)");
-
-            if (inScope && !markerDetected)
-            {
-                if (line.Trim() == "")
-                {
-                    inScope = false;
-                    markerDetected = true;
-
-                    return new string[]
-                    {
-                        "@property (nonatomic, copy)                                 void(^unityMessageHandler)(const char* message);",
-                    };
-                }
-
-                return new string[] { line };
-            }
-
-            return new string[] { line };
-        });
-
-        inScope = false;
-        markerDetected = false;
-
         // Add static GetAppController
         EditCodeFile(path, line =>
         {
@@ -198,6 +175,8 @@ public static class XcodePostBuild
 						"",
 						"// Added by " + TouchedMarker,
 						"+ (UnityAppController*)GetAppController;",
+                        "+ (void)addUnityEventListenerInternal:(id<UnityEventListener>)listener;",
+                        "+ (void)removeUnityEventListenerInternal:(id<UnityEventListener>)listener;",
                         ""
 					};
 				}
@@ -231,7 +210,17 @@ public static class XcodePostBuild
                         "    return [UnityAppController GetAppController];",
                         "}",
                         "",
-
+                        "// Added by " + TouchedMarker,
+                        "static inline void addUnityEventListenerInternal(id<UnityEventListener> listener)",
+                        "{",
+                        "    [UnityAppController addUnityEventListenerInternal: listener];",
+                        "}",
+                        "",
+                        "// Added by " + TouchedMarker,
+                        "static inline void removeUnityEventListenerInternal(id<UnityEventListener> listener)",
+                        "{",
+                        "    [UnityAppController removeUnityEventListenerInternal:listener];",
+                        "}"
                     };
                 }
 
@@ -272,14 +261,25 @@ public static class XcodePostBuild
 					"}",
 					"",
                     "// Added by " + TouchedMarker,
-                    "extern \"C\" void onUnityMessage(const char* message)",
+                    "static NSHashTable* mUnityEventListeners = [NSHashTable weakObjectsHashTable];",
+                    "+ (void)addUnityEventListener2:(id<UnityEventListener>)listener",
                     "{",
-                    "    if (GetAppController().unityMessageHandler) {",
-                    "        GetAppController().unityMessageHandler(message);",
-                    "    }",
+                    "    [mUnityEventListeners addObject: listener];",
+                    "}",
+                    "",
+                    "// Added by " + TouchedMarker,
+                    "+(void)removeUnityEventListener2:(id<UnityEventListener>)listener",
+                    "{",
+                    "    [mUnityEventListeners removeObject: listener];",
                     "}",
                     line,
-
+                    "// Added by " + TouchedMarker,
+                    "extern \"C\" void onUnityMessage(const char* message)",
+                    "{",
+                    "    for (id<UnityEventListener> listener in mUnityEventListeners) {",
+                    "        [listener onMessage:[NSString stringWithUTF8String:message]];",
+                    "    }",
+                    "}",
 				};
             }
 
@@ -330,33 +330,6 @@ public static class XcodePostBuild
                 }
 
                 return new string[] { "// " + line };
-            }
-
-            return new string[] { line };
-        });
-
-        inScope = false;
-        markerDetected = false;
-
-        // Modify inline GetAppController
-        EditCodeFile(path, line =>
-        {
-            inScope |= line.Contains("@synthesize quitHandler");
-
-            if (inScope && !markerDetected)
-            {
-                if (line.Trim() == "")
-                {
-                    inScope = false;
-                    markerDetected = true;
-
-                    return new string[]
-                    {
-                        "@synthesize unityMessageHandler     = _unityMessageHandler;",
-                    };
-                }
-
-                return new string[] { line };
             }
 
             return new string[] { line };

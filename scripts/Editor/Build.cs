@@ -41,6 +41,10 @@ public class Build : MonoBehaviour
 
         EditorUserBuildSettings.androidBuildSystem = AndroidBuildSystem.Gradle;
 
+        // inject FLUTTER_LIB preprocessor
+        var prevSymbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(BuildTargetGroup.Android);
+        PlayerSettings.SetScriptingDefineSymbolsForGroup(BuildTargetGroup.Android, prevSymbols + ";FLUTTER_LIB");
+
         var options = BuildOptions.AcceptExternalModificationsToPlayer;
         var report = BuildPipeline.BuildPlayer(
             GetEnabledScenes(),
@@ -48,6 +52,9 @@ public class Build : MonoBehaviour
             BuildTarget.Android,
             options
         );
+
+        // reset preprocessor symbols
+        PlayerSettings.SetScriptingDefineSymbolsForGroup(BuildTargetGroup.Android, prevSymbols);
 
         if (report.summary.result != BuildResult.Succeeded)
             throw new Exception("Build failed");
@@ -82,6 +89,10 @@ public class Build : MonoBehaviour
 
         EditorUserBuildSettings.iOSBuildConfigType = iOSBuildType.Release;
 
+        // inject FLUTTER_LIB preprocessor
+        var prevSymbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(BuildTargetGroup.Android);
+        PlayerSettings.SetScriptingDefineSymbolsForGroup(BuildTargetGroup.iOS, prevSymbols + ";FLUTTER_LIB");
+
         var options = BuildOptions.AcceptExternalModificationsToPlayer;
         var report = BuildPipeline.BuildPlayer(
             GetEnabledScenes(),
@@ -89,6 +100,9 @@ public class Build : MonoBehaviour
             BuildTarget.iOS,
             options
         );
+
+        // reset preprocessor symbols
+        PlayerSettings.SetScriptingDefineSymbolsForGroup(BuildTargetGroup.iOS, prevSymbols);
 
         if (report.summary.result != BuildResult.Succeeded)
             throw new Exception("Build failed");

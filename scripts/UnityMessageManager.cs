@@ -61,7 +61,7 @@ public class UnityMessage
 
 public class UnityMessageManager : MonoBehaviour
 {
-#if UNITY_IOS && !UNITY_EDITOR
+#if UNITY_IOS && !UNITY_EDITOR && FLUTTER_LIB
     [DllImport("__Internal")]
     private static extern void onUnityMessage(string message);
 #endif
@@ -108,7 +108,7 @@ public class UnityMessageManager : MonoBehaviour
         }
         else if (Application.platform == RuntimePlatform.IPhonePlayer)
         {
-#if UNITY_IOS && !UNITY_EDITOR
+#if UNITY_IOS && !UNITY_EDITOR && FLUTTER_LIB
             onUnityMessage(message);
 #endif
         }
